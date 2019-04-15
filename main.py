@@ -14,4 +14,3 @@ imgWindow = ImageWindow(src, dst, 'test')
 imgWindow.interface_window()
 # imgList = mophy.cross_dissolve(alpha=0.05)
 # mophy.save_Gifs('1.gif')
-

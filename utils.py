@@ -12,7 +12,6 @@ class ImageWindow(object):
         self.point_number = 0
         self.color = (0, 152, 255)
         self.name = name
-        cv.namedWindow(name)
 
     def draw_line(self, event, x, y, flags, param):
         if event == cv.EVENT_LBUTTONDOWN:
@@ -26,11 +25,11 @@ class ImageWindow(object):
                 cv.line(self.img, src, dst, self.color, 3)
 
     def interface_window(self):
+        cv.namedWindow(self.name)
         cv.setMouseCallback(self.name, self.draw_line)
         while(1):
-            cv.imshow('image',self.img)
+            cv.imshow(self.name, self.img)
             k = cv.waitKey(1) & 0xFF
-            print(k)
             if k == 27:
                 break
         cv.destroyAllWindows()
