@@ -1,6 +1,7 @@
 import os
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(MODULE_DIR, 'model')
 IMG_DIR = os.path.join(MODULE_DIR, 'img')
 RESULT_DIR = os.path.join(MODULE_DIR, 'result')
 SIZE = (235, 235)
