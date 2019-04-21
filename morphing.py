@@ -1,25 +1,21 @@
 import numpy as np
 import cv2 as cv
-import os
-import  imageio
-from const import *
+from utils import cross_dissolve
+from const import P, A, B
 
 
 class Morphing(object):
-    def __init__(self, srcPath, dstPath):
-        self.srcImg = cv.imread(srcPath)
-        self.dstImg = cv.imread(dstPath)
+    """
+        Morphing by muli-features-lines by Beier and Neely.
+        @papers: http://www.indiana.edu/~pcl/busey/morph.pdf
+    """
+    def __init__(self, srcImg, dstImg):
+        self.srcImg = srcImg
+        self.dstImg = dstImg
         if self.srcImg.shape != self.dstImg.shape:
-            self.srcImg = cv.resize(self.srcImg, SIZE, interpolation=cv.INTER_CUBIC)
-            self.dstImg = cv.resize(self.dstImg, SIZE, interpolation=cv.INTER_CUBIC)
-        # self.newDstImg = np.ones(self.dstImg.shape) * 255
-        self.mask = np.ones(self.dstImg.shape[:2])
-        self.cnt = 0
-        self.numberSave = 0
+            self.srcImg = cv.resize(self.srcImg, self.dstImg.shape, interpolation=cv.INTER_CUBIC)
         self.newDstImg = self.dstImg.copy()
         self.size = self.srcImg.shape
-        self.imgList = []
-        self.crossImgList = []
 
     def distance(self, p, q):
         """
@@ -37,31 +33,9 @@ class Morphing(object):
             merge the srcImg and dstImg by feature-lines
         """
         x, y = X[0], X[1]
-        x_ = max(min(int(X_[0]), self.size[1] - 1),0) 
-        y_ = max(min(int(X_[1]), self.size[0] - 1),0)
+        x_ = max(min(int(X_[0]), self.size[1] - 1), 0)
+        y_ = max(min(int(X_[1]), self.size[0] - 1), 0)
         self.newDstImg[y][x] = self.srcImg[y_][x_]
-        # self.cnt += 1
-        # if self.cnt % 50 == 0:
-        #     cv.imwrite(RESULT_DIR + '/cnt_{}.png'.format(self.numberSave), self.newDstImg)
-        #     self.numberSave += 1
-        self.mask[y][x] = 255
-
-    def cross_dissolve(self, alpha=0.05):
-        """
-            morphing by cross_dissolve
-            @param:
-                alpha: the step to close the dst img, default = 0.05
-            @return:
-                imgList: the list of transfer imgs
-        """
-        t = 0
-        imgList = []
-        while t < 1:
-            tmpImg = np.uint8(self.newDstImg * (1 - t) + self.dstImg * t)
-            imgList.append(tmpImg.copy())
-            t += alpha
-        imgList.append(self.dstImg)
-        return imgList
 
     def single_line(self, src, dst, X):
         """
@@ -103,9 +77,9 @@ class Morphing(object):
         if number == 0:
             self.newDstImg = self.srcImg
             return
-        size = self.srcImg.shape
-        for x in range(size[1]):
-            for y in range(size[0]):
+
+        for x in range(self.size[1]):
+            for y in range(self.size[0]):
                 newX = np.zeros(2)
                 weightSum = 0
                 for i in range(number):
@@ -114,39 +88,7 @@ class Morphing(object):
                     weightSum += weight
                 newX /= weightSum
                 self.setPixel((x,y), newX)
-        # self.newDstImg = (self.newDstImg + self.dstImg) / 2
-        tmp = (self.dstImg + self.srcImg) / 2
-        cv.imwrite(RESULT_DIR + '/orignal.png', tmp)
-        cv.imwrite(RESULT_DIR + '/merge.png', self.newDstImg)
-        cv.imwrite(RESULT_DIR + '/mask.png', self.mask)
 
-    def save_Gifs(self, name):
-        """
-            save the result by morphying.
-            Such as gif and transfer processing.
-        """
-        imgTransfer = np.zeros((self.size[0], self.size[1] * 6, self.size[2]))
-        imgTransfer[:,:self.size[1]] = self.newDstImg
-        imgTransfer[:,self.size[1] * 5:] = self.dstImg
-        index = 0
-        path = RESULT_DIR + '/{}.gif'.format(name)
-        with imageio.get_writer(path, mode='i', duration=0.1) as writer:
-            length = len(self.imgList)
-            middle_res = [int(v * length) for v in [0.2, 0.4, 0.6, 0.8]]
-            for i, img in enumerate(self.imgList):
-                if i in middle_res:
-                    index += 1
-                    imgTransfer[:, self.size[1] * index : self.size[1] * (index + 1)] = img
-                writer.append_data(img[:,:,::-1])
-        path = RESULT_DIR + '/{}_middle_transfer.png'.format(name)
-        cv.imwrite(path, imgTransfer)
-
-    def __call__(self, lines_src, lines_dst, name, alpha=0.05):
+    def __call__(self, lines_src, lines_dst, interval):
         self.multi_line(lines_src, lines_dst)
-        # feature-based Image Metamorphosis
-        self.imgList = self.cross_dissolve(alpha)
-        self.save_Gifs(name)
-        # Just cross_dissolve
-        self.newDstImg = self.srcImg
-        self.imgList = self.cross_dissolve(alpha)
-        self.save_Gifs(name + '_cross_dissovle')
+        return cross_dissolve(self.newDstImg, self.dstImg, interval)

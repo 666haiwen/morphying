@@ -1,15 +1,55 @@
 import numpy as np
 import cv2 as cv
-from morphing import Morphing
+import imageio
+from const import RESULT_DIR
+
+
+def cross_dissolve(imgSrc, imgDst, interval=0.05):
+    """
+        morphing by cross_dissolve
+        @params:
+            imgSrc: the source image to transfer
+            imgDst: the destinate image to transfer
+            interval: the step to close the dst img, default = 0.05
+        @return:
+            imgList: the list of transfer imgs
+    """
+    imgList = []
+    for alpha in np.arange(0.0, 1.0 + interval, interval):
+        tmpImg = np.uint8(imgSrc * (1 - alpha) + imgDst * alpha)
+        imgList.append(tmpImg.copy())
+    return imgList
+
+
+def save_Gifs(imgList, name):
+    """
+        save the result by morphying.
+        Such as gif and transfer processing.
+    """
+    index = 0
+    size = imgList[0].shape
+    imgTransfer = np.zeros((size[0], size[1] * 6, size[2]))
+    path = RESULT_DIR + '/{}.gif'.format(name)
+    with imageio.get_writer(path, mode='i', duration=0.1) as writer:
+        length = len(imgList)
+        middle_res = [int(v * length) for v in [0, 0.2, 0.4, 0.6, 0.8]]
+        for i, img in enumerate(imgList):
+            if i in middle_res:
+                imgTransfer[:, size[1] * index : size[1] * (index + 1)] = img
+                index += 1
+            writer.append_data(img[:,:,::-1])
+    imgTransfer[:, size[1] * index : size[1] * (index + 1)] = imgList[-1]
+    path = RESULT_DIR + '/{}_transfer.png'.format(name)
+    cv.imwrite(path, imgTransfer)
 
 
 class ImageWindow(object):
     def __init__(self, src, dst, name):
         # height * width * 3
         self.shape = shape = src.shape
-        self.img = np.zeros((shape[0] * 2 + 50,) + shape[1:], np.uint8)
-        self.img[:shape[0], :, :] = src
-        self.img[shape[0] + 50:, :, :] = dst
+        self.img = np.zeros((shape[0], shape[1] * 2 + 50, shape[2]), np.uint8)
+        self.img[:, :shape[1], :] = src
+        self.img[:, shape[1] + 50 :, :] = dst
         self.pre_point = 0
         self.top_points = []
         self.down_points = []
@@ -29,19 +69,19 @@ class ImageWindow(object):
             cv.line(self.img, src, dst, self.color, 3)
 
         if event == cv.EVENT_LBUTTONDOWN:
-            if y < self.shape[0] and self.pre_point != 1:
+            if x < self.shape[1] and self.pre_point != 1:
                 self.top_points.append(np.array([x, y]))
                 cv.circle(self.img, (x,y), 3, self.color, -1)
-                pre_point = -1
+                self.pre_point = -1
                 if len(self.top_points) % 2 == 0:
-                    pre_point = 0
+                    self.pre_point = 0
                     draw_line(self.top_points[-2:])
-            if y > self.shape[0] + 50 and self.pre_point != -1:
+            if x > self.shape[1] + 50 and self.pre_point != -1:
                 self.down_points.append(np.array([x, y]))
                 cv.circle(self.img, (x,y), 3, self.color, -1)
-                pre_point = 1
+                self.pre_point = 1
                 if len(self.down_points) % 2 == 0:
-                    pre_point = 0
+                    self.pre_point = 0
                     draw_line(self.down_points[-2:])
 
 
@@ -68,4 +108,4 @@ class ImageWindow(object):
                     'length': distance(points[i], points[i + 1])
                 })
             return lines
-        return set_line(self.top_points), set_line(self.down_points, [0, -self.shape[0] - 50])
+        return set_line(self.top_points), set_line(self.down_points, [-self.shape[1] - 50, 0])
